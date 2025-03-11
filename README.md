@@ -63,7 +63,7 @@ The tool uses a multi-agent architecture:
 ## Project structure
 
 ```
-kallisto_osinter/
+.
 ├── README.md
 ├── setup.py
 ├── requirements.txt
