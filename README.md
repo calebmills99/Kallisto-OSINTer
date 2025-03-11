@@ -121,6 +121,36 @@ The tool uses a multi-agent architecture:
     └── test_agents.py
 ```
 
+## Dependencies
+```
+anyio
+langchain
+zipp
+validators
+tqdm
+ipwhois
+fake_useragent
+PyQt6
+requests
+openai
+beautifulsoup4
+lxml
+colorama
+google-search-results
+httpx
+tenacity
+requests_html
+aiohttp
+urllib3
+asyncio
+lxml_html_clean
+html_clean
+dnspython
+aiohttp-socks
+python-socks[asyncio]
+matplotlib
+```
+
 ## Installation
 Install the package directly via pip:
 
