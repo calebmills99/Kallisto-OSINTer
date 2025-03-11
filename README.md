@@ -4,7 +4,7 @@
 
 Kallisto is an LLM-based OSINT tool designed to perform deep web searches by orchestrating multiple web agents and a knowledge agent that uses state-of-the-art machine learning methods. The tool crawls the entire web to gather massive amounts of publicly available data, then leverages advanced LLM techniques to perform natural language tasks on that information.
 
-> It's important to recognize the responsibility that comes with using public intelligence. Respect **🌈 personal "privacy" 🌈**.
+> It's important to recognize the responsibility that comes with using such tools. Respect **🌈 personal "privacy" 🌈**.
 
 The tool uses a multi-agent architecture:
 - **Web agent** performs initial searches, scrapes results and extracts relevant text
