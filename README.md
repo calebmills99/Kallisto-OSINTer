@@ -38,10 +38,10 @@ The tool uses a multi-agent architecture:
 - **LangChain integration**  
   Build and run advanced LangChain pipelines to process OSINT data, generate insights and customize LLM chains using `src/langchain_integration.py` module.
 
-- **Visualization**
+- **Visualization**  
   Generate bar/line/pie charts based on OSINT data. Visual progress tracking is supported via tqdm in `src/visualization/data_visualizer.py`.
 
-- **IP and DNS lookup**
+- **IP and DNS lookup**  
   With `src/modules/ip_lookup.py` and `src/modules/dns_lookup.py` modules, you can perform comprehensive IP analysis using ipwhois and retrieve DNS records with dnspython.
 
 - **Alternative web scraping**  
