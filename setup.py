@@ -9,7 +9,8 @@ setup(
     description='LLM-based OSINT tool for deep web search and data synthesis with advanced features',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
-    packages=find_packages(exclude=['tests*', 'docs', 'examples']),
+    packages=find_packages(include=['src', 'src.*']),
+    package_dir={'': '.'},
     install_requires=[
         'requests==2.32.3',
         'openai>=0.27.0',

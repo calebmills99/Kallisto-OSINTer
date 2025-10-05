@@ -4,9 +4,14 @@ Uses the Serper API (or similar) to perform Google searches with optional filter
 """
 
 import requests
+import time
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+# Rate limiting state
+_last_search_time = 0
+_min_search_interval = 1.5  # minimum seconds between searches
 
 def search_query(query, config, country=None, language=None, date_range=None):
     """
@@ -15,22 +20,38 @@ def search_query(query, config, country=None, language=None, date_range=None):
     Returns a list of search results with keys: 'title', 'link' and 'snippet'.
     """
     api_key = config.get('SERPER_API_KEY', '')
-    url = "https://api.serper.dev/search"
-    params = {
-        "q": query,
-        "api_key": api_key
+    url = "https://google.serper.dev/search"
+
+    headers = {
+        "X-API-KEY": api_key,
+        "Content-Type": "application/json"
     }
+
+    payload = {
+        "q": query
+    }
+
     # Add filters if provided
     if country:
-        params["gl"] = country
+        payload["gl"] = country
     if language:
-        params["hl"] = language
+        payload["hl"] = language
     if date_range:
-        params["date"] = date_range
+        payload["tbs"] = date_range
 
-    logger.debug("Sending search query: %s", params)
+    # Rate limiting
+    global _last_search_time
+    current_time = time.time()
+    time_since_last = current_time - _last_search_time
+    if time_since_last < _min_search_interval:
+        sleep_time = _min_search_interval - time_since_last
+        logger.debug("Rate limiting: sleeping for %.2f seconds", sleep_time)
+        time.sleep(sleep_time)
+
+    logger.debug("Sending search query: %s", payload)
     try:
-        response = requests.get(url, params=params, timeout=10)
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        _last_search_time = time.time()
         if response.status_code == 200:
             data = response.json()
             # Parse results into a list of dicts

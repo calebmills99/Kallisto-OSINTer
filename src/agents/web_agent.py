@@ -56,7 +56,7 @@ class WebAgent:
             t = threading.Thread(target=self.fetch_and_summarize, args=(result['link'],))
             t.start()
             threads.append(t)
-            time.sleep(0.2)  # slight delay to avoid rate limiting
+            time.sleep(1.0)  # increased delay to avoid rate limiting
 
         for t in threads:
             t.join()

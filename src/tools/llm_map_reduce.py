@@ -51,15 +51,25 @@ def map_reduce(html_content, llm_client):
     Performs the map-reduce:
       1. Clean HTML to text.
       2. Split text into chunks.
-      3. Summarize each chunk.
+      3. Summarize each chunk (with rate limiting).
       4. Concatenate summaries.
     """
     logger.info("Starting map-reduce summarization.")
     text = clean_html(html_content)
+
+    # Skip if content is empty or too small
+    if not text or len(text.strip()) < 50:
+        logger.debug("Content too small or empty, skipping summarization")
+        return ""
+
     chunks = split_text(text)
+    logger.debug("Split content into %d chunks", len(chunks))
+
     summaries = []
-    for chunk in chunks:
+    for i, chunk in enumerate(chunks):
+        logger.debug("Summarizing chunk %d/%d", i+1, len(chunks))
         summary = summarize_chunk(chunk, llm_client)
         summaries.append(summary)
+
     final_summary = "\n".join(summaries)
     return final_summary

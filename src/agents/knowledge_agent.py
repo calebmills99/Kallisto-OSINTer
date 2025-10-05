@@ -44,7 +44,7 @@ class KnowledgeAgent:
             t = threading.Thread(target=run_agent, args=(topic,))
             t.start()
             threads.append(t)
-            time.sleep(0.1)
+            time.sleep(2.0)  # increased delay to avoid rate limiting
 
         for t in threads:
             t.join()
