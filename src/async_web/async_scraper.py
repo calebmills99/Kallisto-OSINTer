@@ -8,11 +8,37 @@ import asyncio
 import aiohttp
 import httpx
 import random
+from typing import Optional
+
 from tenacity import retry, stop_after_attempt, wait_fixed
+
 from src.utils.user_agents import get_random_user_agent
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+class AsyncRateLimiter:
+    """Simple asyncio-compatible rate limiter."""
+
+    def __init__(self, interval: float):
+        self._interval = max(0.0, float(interval))
+        self._lock = asyncio.Lock()
+        self._last_call = 0.0
+
+    async def acquire(self) -> None:
+        """Waits until the next call is allowed based on the interval."""
+        if self._interval <= 0:
+            return
+
+        async with self._lock:
+            loop = asyncio.get_running_loop()
+            now = loop.time()
+            wait_time = self._last_call + self._interval - now
+            if wait_time > 0:
+                await asyncio.sleep(wait_time)
+                now = loop.time()
+            self._last_call = now
+
 
 async def fetch_url(session, url, proxy=None, timeout=10):
     """
@@ -29,33 +55,68 @@ async def fetch_url(session, url, proxy=None, timeout=10):
         return {"url": url, "status": "error", "content": ""}
 
 @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
-async def async_fetch(url, proxy=None):
+async def async_fetch(
+    url,
+    proxy=None,
+    *,
+    session: Optional[aiohttp.ClientSession] = None,
+    semaphore: Optional[asyncio.Semaphore] = None,
+    rate_limiter: Optional[AsyncRateLimiter] = None,
+):
     """
     Retries fetching a URL asynchronously with aiohttp.
     """
-    async with aiohttp.ClientSession() as session:
-        result = await fetch_url(session, url, proxy=proxy)
-        return result
+    async def _do_fetch(client_session: aiohttp.ClientSession):
+        if rate_limiter:
+            await rate_limiter.acquire()
+        if semaphore:
+            async with semaphore:
+                return await fetch_url(client_session, url, proxy=proxy)
+        return await fetch_url(client_session, url, proxy=proxy)
 
-async def fetch_all(urls, proxies=None):
+    if session is not None:
+        return await _do_fetch(session)
+
+    async with aiohttp.ClientSession() as own_session:
+        return await _do_fetch(own_session)
+
+async def fetch_all(urls, proxies=None, *, max_concurrent=5, rate_limit_interval=0.0):
     """
     Fetches multiple URLs asynchronously.
     Rotates proxies if provided.
     """
-    tasks = []
-    for url in urls:
-        proxy = None
-        if proxies:
-            proxy = random.choice(proxies)
-        tasks.append(async_fetch(url, proxy))
-    results = await asyncio.gather(*tasks)
+    semaphore = asyncio.Semaphore(max_concurrent) if max_concurrent else None
+    rate_limiter = AsyncRateLimiter(rate_limit_interval) if rate_limit_interval else None
+
+    async with aiohttp.ClientSession() as session:
+        tasks = []
+        for url in urls:
+            proxy = random.choice(proxies) if proxies else None
+            tasks.append(
+                async_fetch(
+                    url,
+                    proxy,
+                    session=session,
+                    semaphore=semaphore,
+                    rate_limiter=rate_limiter,
+                )
+            )
+        results = await asyncio.gather(*tasks)
     return results
 
-def async_scrape_urls(urls, proxies=None):
+def async_scrape_urls(urls, proxies=None, *, max_concurrent=5, rate_limit_interval=0.0):
     """
     Synchronous wrapper to scrape URLs asynchronously.
     """
-    return asyncio.run(fetch_all(urls, proxies))
+    return asyncio.run(
+        fetch_all(
+            urls,
+            proxies,
+            max_concurrent=max_concurrent,
+            rate_limit_interval=rate_limit_interval,
+        )
+    )
+
 
 async def httpx_fetch(url, proxy=None, timeout=10):
     """
@@ -72,21 +133,37 @@ async def httpx_fetch(url, proxy=None, timeout=10):
             logger.error("HTTPX error fetching URL %s: %s", url, str(e))
             return {"url": url, "status": "error", "content": ""}
 
-async def httpx_fetch_all(urls, proxies=None):
+async def httpx_fetch_all(urls, proxies=None, *, max_concurrent=5, rate_limit_interval=0.0):
     """
     Fetches multiple URLs asynchronously using httpx.
     """
+    semaphore = asyncio.Semaphore(max_concurrent) if max_concurrent else None
+    rate_limiter = AsyncRateLimiter(rate_limit_interval) if rate_limit_interval else None
+
+    async def _wrapped_fetch(url, proxy):
+        if rate_limiter:
+            await rate_limiter.acquire()
+        if semaphore:
+            async with semaphore:
+                return await httpx_fetch(url, proxy)
+        return await httpx_fetch(url, proxy)
+
     tasks = []
     for url in urls:
-        proxy = None
-        if proxies:
-            proxy = random.choice(proxies)
-        tasks.append(httpx_fetch(url, proxy))
+        proxy = random.choice(proxies) if proxies else None
+        tasks.append(_wrapped_fetch(url, proxy))
     results = await asyncio.gather(*tasks)
     return results
 
-def async_scrape_urls_httpx(urls, proxies=None):
+def async_scrape_urls_httpx(urls, proxies=None, *, max_concurrent=5, rate_limit_interval=0.0):
     """
     Synchronous wrapper for httpx asynchronous scraping.
     """
-    return asyncio.run(httpx_fetch_all(urls, proxies))
+    return asyncio.run(
+        httpx_fetch_all(
+            urls,
+            proxies,
+            max_concurrent=max_concurrent,
+            rate_limit_interval=rate_limit_interval,
+        )
+    )
