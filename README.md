@@ -1,67 +1,49 @@
-[Documentation](https://github.com/avrtt/Kallisto-OSINTer/blob/main/docs/documentation.md)
+# Kallisto-OSINTer: Drag Queen Story Time for Curious Sleuths
 
-<br/>
+[Full documentation and technical deep-dive](https://github.com/avrtt/Kallisto-OSINTer/blob/main/docs/documentation.md)
 
-Kallisto is an LLM-based OSINT tool designed to perform deep web searches by orchestrating multiple web agents and a knowledge agent that uses state-of-the-art machine learning methods. The tool crawls the entire web to gather massive amounts of publicly available data, then leverages advanced LLM techniques to perform natural language tasks on that information.
+## Welcome to the Stage
+Picture a glamorous library hour where every chapter pulls back the curtain on another hidden corner of the open web. Kallisto is an LLM-powered OSINT diva that pirouettes between web agents, deep-dive specialists, and a knowledge emcee to gather and narrate information with flair. Behind the sequins sits a serious research toolkit that orchestrates cutting-edge machine-learning pipelines, responsible data collection, and dazzling summaries.
 
-> It's important to recognize the responsibility that comes with using such tools. Respect **🌈 personal "privacy" 🌈**.
+> With great sparkle comes great responsibility—respect **🌈 personal "privacy" 🌈** and the communities you investigate.
 
-The tool uses a multi-agent architecture:
-- **Web agent** performs initial searches, scrapes results and extracts relevant text
-- **Knowledge agent** orchestrates the web agents and recursively launches deep-dive agents to explore promising areas
-- **Deep dive agents** target specific topics for additional context
-- **LLM map-reduce** chunks large HTML pages and summarizes content to reduce token usage
-- **LLM client** wraps calls to GPT-4 (or other LLM backends) for natural language processing tasks
+## Cast of Characters (Architecture)
+- **Web Agent** – struts through search results, scraping and excerpting the choicest bits.
+- **Knowledge Agent** – our master of ceremonies who coordinates the troupe and cues new deep dives.
+- **Deep Dive Agents** – specialty performers who explore promising leads in detail.
+- **LLM Map-Reduce** – slices hefty HTML monologues into digestible acts and delivers polished recaps.
+- **LLM Client** – wraps GPT-4 (or other LLM backends) with graceful rate limiting and retries.
 
-## Features & examples
-- **Person lookup**  
-  For example, you can look up a person with a simple command:
+## Headline Acts (Features)
+- **Person Lookup Production** – generate summaries, psychological reads, resumes, phishing simulations (for research!), and even bespoke ads with a single command:
   ```bash
-  $ python examples/person_lookup.py "FULL_NAME" --ask "Write a summary about this person."
+  python examples/person_lookup.py "FULL_NAME" --ask "Write a summary about this person."
   ```
-  The tool can then:
-  - predict top 3 Myers-Briggs types with confidence levels
-  - generate a psychological report
-  - create a markdown resume
-  - build a table of personal information
-  - propose hypothetical account infiltration methods
-  - draft a phishing email (for the sake of science ofc)
-  - even generate a personalized ad if required
+- **Prompt Architecture Cabaret** – choreograph multi-agent routines instead of relying on one overworked soloist.
+- **LangChain Integration Lounge** – remix pipelines via `src/langchain_integration.py` and `LangChainIntegrator` utilities.
+- **Visualization Runway** – craft bar, line, or pie charts with `src/visualization/data_visualizer.py` while tracking progress via `tqdm`.
+- **IP & DNS Oracle** – consult `src/modules/ip_lookup.py` and `src/modules/dns_lookup.py` for network reconnaissance.
+- **Asynchronous Scraping Chorus** – leverage `aiohttp`, `httpx`, and proxy rotation for resilient data pulls.
+- **Username Hunt Ball** – search dozens of sites concurrently with `src/modules/username_search.py`.
+- **PyQt6 Backstage Pass** – take the GUI for a spin with `src/ui/qt_interface.py`.
 
-- **Prompt architecture**  
-  Instead of a single greedy agent, the OSINT task is split into:
-  - an initial search agent
-  - a knowledge agent that asks for deep-dive topics
-  - multiple deep-dive agents that target specific areas
-  - a final LLM summary prompt
+## Debug Like a Spotlight Operator
+Sometimes you need to peek behind the velvet curtain. Enable verbose logging and debug helpers with:
 
-- **LangChain integration**  
-  Build and run advanced LangChain pipelines to process OSINT data, generate insights and customize LLM chains using `src/langchain_integration.py` module.
+```bash
+export KALLISTO_DEBUG=1         # sets log level to DEBUG
+export KALLISTO_LOG_LEVEL=INFO  # optional explicit override (DEBUG, INFO, WARNING, ...)
+```
 
-- **Visualization**  
-  Generate bar/line/pie charts based on OSINT data. Visual progress tracking is supported via tqdm in `src/visualization/data_visualizer.py`.
+For a ready-made routine, run the LangChain integrator’s debug showcase:
 
-- **IP and DNS lookup**  
-  With `src/modules/ip_lookup.py` and `src/modules/dns_lookup.py` modules, you can perform comprehensive IP analysis using ipwhois and retrieve DNS records with dnspython.
+```bash
+python -c "from src.langchain_integration import debug_langchain_integrator; debug_langchain_integrator()"
+```
 
-- **Alternative web scraping**  
-  Utilize aiohttp and httpx for high-performance, asynchronous web scraping with proxy rotation and randomized user agents.
+Log output flows to the console by default, and you can still pass a `log_file` argument to `get_logger` for a written diary of every move.
 
-- **Tools & techniques**
-  - **Search:** uses the Serper API for Google-powered searches with advanced filtering (country, language, date range)
-  - **Read link:** uses ScrapingBee to reliably bypass bot detection and perform JS rendering
-  - **Chunk & summarize:** a recursive method to chunk HTML, strip it to text and summarize via LLM
-  - **Proxy & user-agent management:** validates proxies and randomizes user-agents to mimic human behavior
-  - **Username search:** searches through a list of URLs concurrently for a given username
-
-- **GUI**  
-  `src/ui/qt_interface.py` module is a PyQt6-based interface to interactively run OSINT tasks, view aggregated knowledge and display visualizations.
-
-- [to be expanded]
-
-
-## Project structure
-
+## Project Structure
 ```
 .
 ├── README.md
@@ -121,46 +103,15 @@ The tool uses a multi-agent architecture:
     └── test_agents.py
 ```
 
-## Dependencies
-```
-anyio
-langchain
-zipp
-validators
-tqdm
-ipwhois
-fake_useragent
-PyQt6
-requests
-openai
-beautifulsoup4
-lxml
-colorama
-google-search-results
-httpx
-tenacity
-requests_html
-aiohttp
-urllib3
-asyncio
-lxml_html_clean
-html_clean
-dnspython
-aiohttp-socks
-python-socks[asyncio]
-matplotlib
-```
-
 ## Installation
-Install the package directly via pip:
+Install directly from GitHub:
 
 ```bash
 pip install git+https://github.com/avrtt/Kallisto-OSINTer.git
 ```
 
-## Environment setup
-
-Before running, ensure you set the following environment variables:
+## Environment Setup
+Prepare your secrets before stepping into the limelight:
 
 ```bash
 export OPENAI_API_KEY=your_openai_api_key
@@ -168,38 +119,29 @@ export SERPER_API_KEY=your_serper_api_key
 export SCRAPINGBEE_API_KEY=your_scrapingbee_api_key
 ```
 
-## Usage
+Optional extras include `SCRAPING_DOG_API_KEY`, `FIRECRAWL_API_KEY`, and the new logging variables described above.
 
-- **Person lookup**  
-  See `examples/person_lookup.py` for a command-line interface that uses the Kallisto to research individuals.
-
-- **Username search**  
-  See `src/modules/username_search.py` for multi-threaded username checks over lists of URLs.
-
-- **GUI mode**  
-  Run the GUI using:  
+## Usage Cheatsheet
+- **Person Lookup** – command-line routine showcased in `examples/person_lookup.py`.
+- **Username Search** – run `src/modules/username_search.py` for multi-threaded checks.
+- **GUI Mode** – launch the PyQt experience:
   ```bash
   python -m kallisto_osinter.src.ui.qt_interface
   ```
-
-- [to be expanded]
+- **LangChain Pipeline** – orchestrate custom flows with `LangChainIntegrator` utilities.
 
 ## Testing
-Unit tests are located in the `tests` folder. Run all tests using:
+Unit tests live in `tests/`. Run the full suite with:
 
 ```bash
 python -m unittest discover -s tests
 ```
 
-## To-do
-- Improve asynchronous scraping and proxy management
-- Expand LangChain pipelines with more customizable chains
-- Enhance GUI functionalities with interactive elements
-- Integrate additional data sources and APIs (social platforms mostly)
+## To-Do (Upcoming Numbers)
+- Polish asynchronous scraping and proxy management choreography.
+- Expand LangChain routines with new customizable scenes.
+- Add interactive flair to the GUI stage.
+- Integrate more social-platform data sources.
 
-## Contributing
-PRs and issues are welcome.
-
-## License
-MIT
-
+## Contributing & License
+PRs, issues, and encore suggestions are welcome. Licensed under MIT.
