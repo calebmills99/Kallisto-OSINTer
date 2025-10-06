@@ -15,6 +15,17 @@ from src.utils.output_saver import SUPPORTED_OUTPUT_FORMATS, save_results
 logger = get_logger(__name__)
 
 
+def _check_venv() -> None:
+    """Ensure the script is running inside a virtual environment."""
+    if sys.prefix == sys.base_prefix:
+        print("ERROR: Kallisto-OSINTer must be run inside a virtual environment!", file=sys.stderr)
+        print("\nTo create and activate a virtual environment:", file=sys.stderr)
+        print("  python -m venv venv", file=sys.stderr)
+        print("  source venv/bin/activate  # On Windows: venv\\Scripts\\activate", file=sys.stderr)
+        print("  pip install -e .", file=sys.stderr)
+        sys.exit(1)
+
+
 def _add_output_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--output",
@@ -64,6 +75,7 @@ def _maybe_save_results(data: Any, output_path: str | None, output_format: str |
 
 
 def main() -> None:
+    _check_venv()
     config = load_config()
     args = parse_arguments()
 
