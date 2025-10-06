@@ -54,7 +54,7 @@ def save_results(data: object, output_path: str, output_format: str | None = Non
             f"Unsupported output format '{fmt}'. Supported formats: {sorted(SUPPORTED_OUTPUT_FORMATS)}"
         )
 
-    if not path.suffix and output_format:
+    if not path.suffix:
         path = path.with_suffix(f".{fmt}")
 
     _ensure_directory(path)
