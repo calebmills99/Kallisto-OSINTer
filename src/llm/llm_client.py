@@ -55,40 +55,21 @@ class LLMClient:
         rate_limit: float = 2.0,
         system_prompt: str = _DEFAULT_SYSTEM_PROMPT,
     ) -> None:
-        self._rate_limit_lock = threading.Lock()
-        self._last_llm_call_time = 0.0
         self.rate_limit = max(rate_limit, 0.0)
+        self._rate_limit_lock = threading.Lock()
+        self._last_llm_call_time = time.monotonic() - self.rate_limit
         self.system_prompt = system_prompt
 
-        self.openai_key = openai_key or ""
-        self.anthropic_key = anthropic_key or ""
-        self.mistral_key = mistral_key or ""
-        self._provider_models: Dict[str, str] = dict(_DEFAULT_PROVIDER_MODELS)
-        if models:
-            for name, value in models.items():
-                if not value:
-                    continue
-                normalised = name.lower()
-                if normalised in _SUPPORTED_PROVIDERS:
-                    self._provider_models[normalised] = value
+        self.openai_key = (openai_key or "").strip()
+        self.anthropic_key = (anthropic_key or "").strip()
+        self.mistral_key = (mistral_key or "").strip()
 
-        self.openai_client = self._build_client(self.openai_key, OpenAI, "OpenAI")
-        self.anthropic_client = self._build_client(self.anthropic_key, Anthropic, "Anthropic")
-        self.mistral_client = self._build_client(self.mistral_key, MistralClient, "Mistral")
+        self._provider_models = self._initialise_provider_models(models)
+
+        self._initialise_clients()
 
         order = self._normalise_provider_order(provider_order)
-        provider_map: Dict[str, tuple[Any, Callable[[str, str, float, int], str]]] = {
-            "openai": (self.openai_client, self._call_openai),
-            "anthropic": (self.anthropic_client, self._call_anthropic),
-            "mistral": (self.mistral_client, self._call_mistral),
-        }
-
-        self._providers: List[tuple[str, Callable[[str, str, float, int], str]]] = []
-        for name in order:
-            client, call_fn = provider_map.get(name, (None, None))
-            if client is None:
-                continue
-            self._providers.append((name, call_fn))
+        self._providers = self._build_provider_registry(order)
 
         if not self._providers:
             logger.warning("LLMClient initialized without any available providers.")
@@ -107,22 +88,49 @@ class LLMClient:
             system_prompt=config.get("LLM_SYSTEM_PROMPT", _DEFAULT_SYSTEM_PROMPT),
         )
 
-    def _respect_rate_limit(self) -> None:
-        if self.rate_limit <= 0:
-            return
-        with self._rate_limit_lock:
-            elapsed = time.time() - self._last_llm_call_time
-            if elapsed < self.rate_limit:
-                sleep_time = self.rate_limit - elapsed
-                logger.debug("LLM rate limiting: sleeping for %.2f seconds", sleep_time)
-                time.sleep(sleep_time)
-            self._last_llm_call_time = time.time()
+    def _initialise_provider_models(
+        self, models: Optional[Dict[str, str]]
+    ) -> Dict[str, str]:
+        provider_models: Dict[str, str] = dict(_DEFAULT_PROVIDER_MODELS)
+        if not models:
+            return provider_models
 
-    def _record_call_time(self) -> None:
+        for name, value in models.items():
+            if not value:
+                continue
+            normalised = name.lower()
+            if normalised in _SUPPORTED_PROVIDERS:
+                provider_models[normalised] = value
+        return provider_models
+
+    def _initialise_clients(self) -> None:
+        self.openai_client = self._build_client(self.openai_key, OpenAI, "OpenAI")
+        self.anthropic_client = self._build_client(self.anthropic_key, Anthropic, "Anthropic")
+        self.mistral_client = self._build_client(self.mistral_key, MistralClient, "Mistral")
+
+    def _build_provider_registry(
+        self, order: Sequence[str]
+    ) -> List[tuple[str, Callable[[str, str, float, int], str]]]:
+        return [
+            (name, call_fn)
+            for name in order
+            if (
+                getattr(self, f"{name}_client", None) is not None
+                and callable(call_fn := getattr(self, f"_call_{name}", None))
+            )
+        ]
+
+    def _apply_rate_limit(self) -> None:
         if self.rate_limit <= 0:
             return
         with self._rate_limit_lock:
-            self._last_llm_call_time = time.time()
+            now = time.monotonic()
+            wait_time = self.rate_limit - (now - self._last_llm_call_time)
+            if wait_time > 0:
+                logger.debug("LLM rate limiting: sleeping %.2fs", wait_time)
+                time.sleep(wait_time)
+                now = time.monotonic()
+            self._last_llm_call_time = now
 
     @staticmethod
     def _normalise_provider_order(provider_order: Optional[Sequence[str]] | Optional[str]) -> List[str]:
@@ -143,7 +151,13 @@ class LLMClient:
                 continue
             if name not in order:
                 order.append(name)
-        return order or list(_DEFAULT_PROVIDER_ORDER)
+        if order:
+            return order
+        logger.error(
+            "No valid LLM providers specified; falling back to default order %s.",
+            ", ".join(_DEFAULT_PROVIDER_ORDER),
+        )
+        return list(_DEFAULT_PROVIDER_ORDER)
 
     def _build_client(self, key: str, cls: Any, provider_name: str) -> Optional[Any]:
         if not key or cls is None:
@@ -164,11 +178,9 @@ class LLMClient:
     ) -> str:
         """Call the first available provider and return its response text."""
 
-        self._respect_rate_limit()
-
         if not self._providers:
-            logger.error("All LLM providers failed to respond.")
-            return "LLM Error: Unable to process the request."
+            logger.error("No LLM providers are configured or available.")
+            return "LLM Error: No providers are configured."
 
         provider_models = dict(self._provider_models)
         if model:
@@ -179,16 +191,26 @@ class LLMClient:
                     continue
                 provider_models[name.lower()] = override
 
+        error_messages: List[str] = []
         for provider, call_fn in self._providers:
+            self._apply_rate_limit()
             try:
                 provider_model = provider_models.get(provider) or model or ""
                 response = call_fn(prompt, provider_model, temperature, max_tokens)
-                self._record_call_time()
                 return (response or "").strip()
             except Exception as exc:
-                logger.error("LLM provider %s failed: %s", provider, exc)
-                self._record_call_time()
+                error_msg = f"LLM provider {provider} failed: {exc}"
+                logger.error(error_msg)
+                error_messages.append(error_msg)
 
+        aggregated_errors = "\n".join(error_messages)
+        if aggregated_errors:
+            logger.error(
+                "All LLM providers failed to respond. Errors:\n%s", aggregated_errors
+            )
+            return (
+                "LLM Error: Unable to process the request.\nDetails:\n" + aggregated_errors
+            )
         logger.error("All LLM providers failed to respond.")
         return "LLM Error: Unable to process the request."
 

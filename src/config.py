@@ -18,8 +18,7 @@ def _env_to_bool(value: str | None, default: bool = False) -> bool:
 def load_config() -> Dict[str, Any]:
     """Load configuration from environment variables."""
 
-    provider_order_env = os.getenv("LLM_PROVIDER_ORDER")
-    if provider_order_env:
+    if provider_order_env := os.getenv("LLM_PROVIDER_ORDER"):
         provider_order: List[str] = [
             item.strip().lower()
             for item in provider_order_env.split(",")
@@ -40,7 +39,7 @@ def load_config() -> Dict[str, Any]:
         "DEFAULT_USER_AGENT": os.getenv(
             "DEFAULT_USER_AGENT", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
         ),
-        "PROXY_LIST": os.getenv("PROXY_LIST", "[]"),
+        "PROXY_LIST": os.getenv("PROXY_LIST", ""),
         "LLM_RATE_LIMIT": float(os.getenv("LLM_RATE_LIMIT", "2.0")),
         "SEARCH_RATE_LIMIT": float(os.getenv("SEARCH_RATE_LIMIT", "1.5")),
         "USERNAME_SEARCH_MAX_WORKERS": int(os.getenv("USERNAME_SEARCH_MAX_WORKERS", "10")),
@@ -54,10 +53,26 @@ def load_config() -> Dict[str, Any]:
         "LOG_LEVEL": os.getenv("KALLISTO_LOG_LEVEL"),
     }
 
-    try:
-        config["PROXY_LIST"] = json.loads(config["PROXY_LIST"])
-    except Exception:
-        config["PROXY_LIST"] = []
+    proxy_value = config["PROXY_LIST"]
+    proxies: List[str]
+    if not proxy_value:
+        proxies = []
+    else:
+        try:
+            loaded = json.loads(proxy_value)
+        except json.JSONDecodeError:
+            loaded = None
+
+        if isinstance(loaded, list):
+            proxies = [str(item).strip() for item in loaded if str(item).strip()]
+        else:
+            proxies = [
+                item.strip()
+                for item in proxy_value.split(",")
+                if item.strip()
+            ]
+
+    config["PROXY_LIST"] = proxies
 
     if config["LOG_LEVEL"]:
         config["LOG_LEVEL"] = config["LOG_LEVEL"].upper()
