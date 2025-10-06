@@ -25,12 +25,14 @@ def load_config() -> Dict[str, Any]:
             if item.strip()
         ]
     else:
-        provider_order = ["openai", "anthropic", "mistral"]
+        provider_order = ["openai", "anthropic", "mistral", "kilocode"]
 
     config: Dict[str, Any] = {
         "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", ""),
         "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY", ""),
         "MISTRAL_API_KEY": os.getenv("MISTRAL_API_KEY", ""),
+        "KILOCODE_API_KEY": os.getenv("KILOCODE_API_KEY", ""),
+        "KILOCODE_API_BASE": os.getenv("KILOCODE_API_BASE", "https://api.kilocode.com/v1"),
         "SERPER_API_KEY": os.getenv("SERPER_API_KEY", ""),
         "SCRAPINGBEE_API_KEY": os.getenv("SCRAPINGBEE_API_KEY", ""),
         "SCRAPING_DOG_API_KEY": os.getenv("SCRAPING_DOG_API_KEY", ""),
@@ -48,6 +50,7 @@ def load_config() -> Dict[str, Any]:
             "openai": os.getenv("LLM_MODEL_OPENAI", "gpt-4"),
             "anthropic": os.getenv("LLM_MODEL_ANTHROPIC", "claude-3-sonnet-20240229"),
             "mistral": os.getenv("LLM_MODEL_MISTRAL", "mistral-large-latest"),
+            "kilocode": os.getenv("LLM_MODEL_KILOCODE", "gpt-3.5-turbo"),
         },
         "DEBUG_MODE": _env_to_bool(os.getenv("KALLISTO_DEBUG")),
         "LOG_LEVEL": os.getenv("KALLISTO_LOG_LEVEL"),
