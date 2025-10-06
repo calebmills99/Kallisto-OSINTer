@@ -12,11 +12,18 @@ from src.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-def lookup_person(name: str, question: str, config: dict) -> str:
+def lookup_person(name: str, question: str, config: dict, location: str | None = None) -> str:
     """Return an answer about ``name`` based on the supplied ``question``."""
 
     logger.info("Initiating person lookup for: %s", name)
-    query = f"Learn as much as you can about {name}"
+
+    # Add location to query if provided for disambiguation
+    if location:
+        query = f"Learn as much as you can about {name} from {location}"
+        logger.info("Using location for disambiguation: %s", location)
+    else:
+        query = f"Learn as much as you can about {name}"
+
     knowledge_agent = KnowledgeAgent(query, config, rounds=2)
     knowledge_agent.aggregate_knowledge()
     answer = knowledge_agent.answer_final_question(question)

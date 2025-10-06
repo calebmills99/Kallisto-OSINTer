@@ -46,6 +46,7 @@ def parse_arguments() -> argparse.Namespace:
     lookup_parser = subparsers.add_parser("person_lookup", help="Lookup a person")
     lookup_parser.add_argument("name", type=str, help="Name of the person to lookup")
     lookup_parser.add_argument("--ask", type=str, required=True, help="Task to perform on the person info")
+    lookup_parser.add_argument("--location", type=str, help="Location to disambiguate person (e.g., 'San Francisco, CA')")
     _add_output_arguments(lookup_parser)
 
     uname_parser = subparsers.add_parser("username_search", help="Search for a username across URLs")
@@ -81,7 +82,7 @@ def main() -> None:
 
     if args.command == "person_lookup":
         logger.info("Starting person lookup for %s", args.name)
-        result = person_lookup.lookup_person(args.name, args.ask, config)
+        result = person_lookup.lookup_person(args.name, args.ask, config, location=args.location)
         print(result)
         _maybe_save_results(result, args.output, args.output_format)
     elif args.command == "username_search":
