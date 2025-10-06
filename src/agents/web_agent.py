@@ -17,7 +17,7 @@ class WebAgent:
         self.query = query
         self.config = config
         self.deep_dive_topic = deep_dive_topic
-        self.llm_client = LLMClient(config['OPENAI_API_KEY'])
+        self.llm_client = LLMClient.from_config(config)
         self.results = []
         self.summary = ""
         self.lock = threading.Lock()

@@ -19,7 +19,7 @@ class KnowledgeAgent:
         self.query = query
         self.config = config
         self.rounds = rounds
-        self.llm_client = LLMClient(config['OPENAI_API_KEY'])
+        self.llm_client = LLMClient.from_config(config)
         self.full_knowledge = ""
 
     def spawn_initial_agent(self):

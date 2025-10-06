@@ -12,7 +12,7 @@ Picture a glamorous library hour where every chapter pulls back the curtain on a
 - **Knowledge Agent** – our master of ceremonies who coordinates the troupe and cues new deep dives.
 - **Deep Dive Agents** – specialty performers who explore promising leads in detail.
 - **LLM Map-Reduce** – slices hefty HTML monologues into digestible acts and delivers polished recaps.
-- **LLM Client** – wraps GPT-4 (or other LLM backends) with graceful rate limiting and retries.
+- **LLM Client** – wraps GPT-4 with graceful rate limiting and now falls back to Anthropic and Mistral models when needed.
 
 ## Headline Acts (Features)
 - **Person Lookup Production** – generate summaries, psychological reads, resumes, phishing simulations (for research!), and even bespoke ads with a single command:
@@ -115,6 +115,8 @@ Prepare your secrets before stepping into the limelight:
 
 ```bash
 export OPENAI_API_KEY=your_openai_api_key
+export ANTHROPIC_API_KEY=your_anthropic_api_key   # optional fallback provider
+export MISTRAL_API_KEY=your_mistral_api_key       # optional fallback provider
 export SERPER_API_KEY=your_serper_api_key
 export SCRAPINGBEE_API_KEY=your_scrapingbee_api_key
 ```
@@ -129,6 +131,15 @@ Optional extras include `SCRAPING_DOG_API_KEY`, `FIRECRAWL_API_KEY`, and the new
   python -m kallisto_osinter.src.ui.qt_interface
   ```
 - **LangChain Pipeline** – orchestrate custom flows with `LangChainIntegrator` utilities.
+
+### Saving command output
+
+Both CLI entry points (`person_lookup` and `username_search`) now accept an optional `--output` flag to save results locally. The format is inferred from the file extension or can be forced with `--output-format` (`txt`, `md`, `csv`, or `json`).
+
+```bash
+python -m src.main person_lookup "Ada Lovelace" --ask "Provide a brief bio" --output reports/ada.md
+python -m src.main username_search ada --urls https://example.com --output usernames.json --output-format json
+```
 
 ## Testing
 Unit tests live in `tests/`. Run the full suite with:

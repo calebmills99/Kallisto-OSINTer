@@ -24,3 +24,5 @@ dnspython>=2.6.1
 aiohttp-socks==0.10.1
 python-socks[asyncio]>=2.4.3
 matplotlib
+anthropic
+mistralai
