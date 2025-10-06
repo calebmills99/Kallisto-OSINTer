@@ -20,6 +20,8 @@ def load_config() -> Dict[str, Any]:
 
     config: Dict[str, Any] = {
         "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", ""),
+        "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY", ""),
+        "MISTRAL_API_KEY": os.getenv("MISTRAL_API_KEY", ""),
         "SERPER_API_KEY": os.getenv("SERPER_API_KEY", ""),
         "SCRAPINGBEE_API_KEY": os.getenv("SCRAPINGBEE_API_KEY", ""),
         "SCRAPING_DOG_API_KEY": os.getenv("SCRAPING_DOG_API_KEY", ""),
