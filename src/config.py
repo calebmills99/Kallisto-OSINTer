@@ -47,7 +47,7 @@ def load_config() -> Dict[str, Any]:
         "USERNAME_SEARCH_MAX_WORKERS": int(os.getenv("USERNAME_SEARCH_MAX_WORKERS", "10")),
         "LLM_PROVIDER_ORDER": provider_order,
         "LLM_MODEL_OVERRIDES": {
-            "openai": os.getenv("LLM_MODEL_OPENAI", "gpt-4"),
+            "openai": os.getenv("LLM_MODEL_OPENAI", "gpt-3.5-turbo"),
             "anthropic": os.getenv("LLM_MODEL_ANTHROPIC", "claude-3-sonnet-20240229"),
             "mistral": os.getenv("LLM_MODEL_MISTRAL", "mistral-large-latest"),
             "kilocode": os.getenv("LLM_MODEL_KILOCODE", "gpt-3.5-turbo"),
