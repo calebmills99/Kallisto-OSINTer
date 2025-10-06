@@ -54,9 +54,9 @@ def search_query(query, config, country=None, language=None, date_range=None):
         _last_search_time = time.time()
         if response.status_code == 200:
             data = response.json()
-            # Parse results into a list of dicts
+            # Parse results into a list of dicts (limit to 7 for speed)
             results = []
-            for item in data.get("organic", []):
+            for item in data.get("organic", [])[:7]:
                 results.append({
                     "title": item.get("title", ""),
                     "link": item.get("link", ""),

@@ -15,7 +15,7 @@ from src.utils.logger import get_logger
 logger = get_logger(__name__)
 
 class KnowledgeAgent:
-    def __init__(self, query, config, rounds=2):
+    def __init__(self, query, config, rounds=1):
         self.query = query
         self.config = config
         self.rounds = rounds
