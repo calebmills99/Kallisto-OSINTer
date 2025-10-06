@@ -19,10 +19,11 @@ def clean_html(html_content):
     text = soup.get_text(separator="\n")
     return text
 
-def split_text(text, max_tokens=200):
+def split_text(text, max_tokens=800):
     """
     Recursively splits text into chunks of roughly max_tokens tokens.
     For simplicity, tokens are approximated by words.
+    Increased to 800 to reduce number of LLM calls and avoid rate limits.
     """
     words = text.split()
     if len(words) <= max_tokens:
