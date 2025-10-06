@@ -21,7 +21,7 @@ class TestLLMClient(unittest.TestCase):
         provider_mock.assert_called_once()
 
     def test_call_llm_error_handling(self) -> None:
-        providers = ["openai", "anthropic", "mistral"]
+        providers = ["openai", "anthropic", "mistral", "kilocode"]
         for provider in providers:
             with self.subTest(provider=provider):
                 llm_client = LLMClient(rate_limit=0)
@@ -36,19 +36,23 @@ class TestLLMClient(unittest.TestCase):
         openai_mock = MagicMock(side_effect=Exception("OpenAI failure"))
         anthropic_mock = MagicMock(side_effect=Exception("Anthropic failure"))
         mistral_mock = MagicMock(side_effect=Exception("Mistral failure"))
+        kilocode_mock = MagicMock(side_effect=Exception("Kilocode failure"))
         self.llm_client._providers = [
             ("openai", openai_mock),
             ("anthropic", anthropic_mock),
             ("mistral", mistral_mock),
+            ("kilocode", kilocode_mock),
         ]
         response = self.llm_client.call_llm("Test prompt")
         self.assertIn("LLM Error", response)
         self.assertIn("OpenAI failure", response)
         self.assertIn("Anthropic failure", response)
         self.assertIn("Mistral failure", response)
+        self.assertIn("Kilocode failure", response)
         openai_mock.assert_called_once()
         anthropic_mock.assert_called_once()
         mistral_mock.assert_called_once()
+        kilocode_mock.assert_called_once()
 
     def test_fallback_to_anthropic_when_openai_fails(self) -> None:
         openai_mock = MagicMock(side_effect=Exception("OpenAI failure"))
@@ -69,16 +73,37 @@ class TestLLMClient(unittest.TestCase):
         openai_mock = MagicMock(side_effect=Exception("OpenAI failure"))
         anthropic_mock = MagicMock(side_effect=Exception("Anthropic failure"))
         mistral_mock = MagicMock(return_value="Mistral response")
+        kilocode_mock = MagicMock(return_value="Kilocode response")
         self.llm_client._providers = [
             ("openai", openai_mock),
             ("anthropic", anthropic_mock),
             ("mistral", mistral_mock),
+            ("kilocode", kilocode_mock),
         ]
         response = self.llm_client.call_llm("Test prompt")
         self.assertEqual(response, "Mistral response")
         openai_mock.assert_called_once()
         anthropic_mock.assert_called_once()
         mistral_mock.assert_called_once()
+        kilocode_mock.assert_not_called()
+
+    def test_fallback_to_kilocode_when_others_fail(self) -> None:
+        openai_mock = MagicMock(side_effect=Exception("OpenAI failure"))
+        anthropic_mock = MagicMock(side_effect=Exception("Anthropic failure"))
+        mistral_mock = MagicMock(side_effect=Exception("Mistral failure"))
+        kilocode_mock = MagicMock(return_value="Kilocode response")
+        self.llm_client._providers = [
+            ("openai", openai_mock),
+            ("anthropic", anthropic_mock),
+            ("mistral", mistral_mock),
+            ("kilocode", kilocode_mock),
+        ]
+        response = self.llm_client.call_llm("Test prompt")
+        self.assertEqual(response, "Kilocode response")
+        openai_mock.assert_called_once()
+        anthropic_mock.assert_called_once()
+        mistral_mock.assert_called_once()
+        kilocode_mock.assert_called_once()
 
     def test_no_providers_returns_error_message(self) -> None:
         self.llm_client._providers = []

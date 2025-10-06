@@ -12,6 +12,7 @@ import time
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
 
 from src.utils.logger import get_logger
+from src.llm.kilocode_client import KilocodeClient
 
 try:  # pragma: no cover - optional dependency
     from openai import OpenAI
@@ -33,12 +34,13 @@ except ImportError:  # pragma: no cover - handled gracefully
 logger = get_logger(__name__)
 
 _DEFAULT_SYSTEM_PROMPT = "You are an OSINT assistant."
-_SUPPORTED_PROVIDERS = ("openai", "anthropic", "mistral")
+_SUPPORTED_PROVIDERS = ("openai", "anthropic", "mistral", "kilocode")
 _DEFAULT_PROVIDER_ORDER = list(_SUPPORTED_PROVIDERS)
 _DEFAULT_PROVIDER_MODELS = {
     "openai": "gpt-4",
     "anthropic": "claude-3-sonnet-20240229",
     "mistral": "mistral-large-latest",
+    "kilocode": "gpt-3.5-turbo",
 }
 
 
@@ -50,10 +52,12 @@ class LLMClient:
         openai_key: Optional[str] = None,
         anthropic_key: Optional[str] = None,
         mistral_key: Optional[str] = None,
+        kilocode_key: Optional[str] = None,
         provider_order: Optional[Sequence[str]] = None,
         models: Optional[Dict[str, str]] = None,
         rate_limit: float = 2.0,
         system_prompt: str = _DEFAULT_SYSTEM_PROMPT,
+        kilocode_base_url: str = "https://api.kilocode.com/v1",
     ) -> None:
         self.rate_limit = max(rate_limit, 0.0)
         self._rate_limit_lock = threading.Lock()
@@ -63,6 +67,8 @@ class LLMClient:
         self.openai_key = (openai_key or "").strip()
         self.anthropic_key = (anthropic_key or "").strip()
         self.mistral_key = (mistral_key or "").strip()
+        self.kilocode_key = (kilocode_key or "").strip()
+        self.kilocode_base_url = kilocode_base_url.rstrip("/") or "https://api.kilocode.com/v1"
 
         self._provider_models = self._initialise_provider_models(models)
 
@@ -82,10 +88,12 @@ class LLMClient:
             openai_key=config.get("OPENAI_API_KEY"),
             anthropic_key=config.get("ANTHROPIC_API_KEY"),
             mistral_key=config.get("MISTRAL_API_KEY"),
+            kilocode_key=config.get("KILOCODE_API_KEY"),
             rate_limit=float(config.get("LLM_RATE_LIMIT", 2.0)),
             provider_order=config.get("LLM_PROVIDER_ORDER"),
             models=config.get("LLM_MODEL_OVERRIDES"),
             system_prompt=config.get("LLM_SYSTEM_PROMPT", _DEFAULT_SYSTEM_PROMPT),
+            kilocode_base_url=config.get("KILOCODE_API_BASE", "https://api.kilocode.com/v1"),
         )
 
     def _initialise_provider_models(
@@ -107,6 +115,16 @@ class LLMClient:
         self.openai_client = self._build_client(self.openai_key, OpenAI, "OpenAI")
         self.anthropic_client = self._build_client(self.anthropic_key, Anthropic, "Anthropic")
         self.mistral_client = self._build_client(self.mistral_key, MistralClient, "Mistral")
+        self.kilocode_client = self._build_kilocode_client()
+
+    def _build_kilocode_client(self) -> Optional[KilocodeClient]:
+        if not self.kilocode_key:
+            return None
+        try:
+            return KilocodeClient(api_key=self.kilocode_key, base_url=self.kilocode_base_url)
+        except Exception as exc:  # pragma: no cover - initialization errors
+            logger.error("Failed to initialize Kilocode client: %s", exc)
+            return None
 
     def _build_provider_registry(
         self, order: Sequence[str]
@@ -284,3 +302,22 @@ class LLMClient:
             max_tokens=max_tokens,
         )
         return response.choices[0].message.content or "" if response.choices else ""
+
+    def _call_kilocode(
+        self,
+        prompt: str,
+        model: str,
+        temperature: float,
+        max_tokens: int,
+    ) -> str:
+        if not self.kilocode_client:
+            raise RuntimeError("Kilocode client is not configured")
+
+        resolved_model = model or self._provider_models.get("kilocode", "gpt-3.5-turbo")
+        return self.kilocode_client.chat_completion(
+            prompt,
+            system_prompt=self.system_prompt,
+            model=resolved_model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )

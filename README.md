@@ -117,6 +117,8 @@ Prepare your secrets before stepping into the limelight:
 export OPENAI_API_KEY=your_openai_api_key
 export ANTHROPIC_API_KEY=your_anthropic_api_key   # optional fallback provider
 export MISTRAL_API_KEY=your_mistral_api_key       # optional fallback provider
+export KILOCODE_API_KEY=your_kilocode_api_key     # optional ChatGPT 3.5 via Kilocode
+# export KILOCODE_API_BASE=https://api.kilocode.com/v1  # override Kilocode endpoint if needed
 export SERPER_API_KEY=your_serper_api_key
 export SCRAPINGBEE_API_KEY=your_scrapingbee_api_key
 ```
