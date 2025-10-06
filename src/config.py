@@ -25,7 +25,8 @@ def load_config() -> Dict[str, Any]:
             if item.strip()
         ]
     else:
-        provider_order = ["openai", "anthropic", "mistral", "kilocode"]
+        # Kilocode first - unlimited requests, multiple models
+        provider_order = ["kilocode", "openai", "anthropic", "mistral"]
 
     config: Dict[str, Any] = {
         "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", ""),
@@ -50,7 +51,7 @@ def load_config() -> Dict[str, Any]:
             "openai": os.getenv("LLM_MODEL_OPENAI", "gpt-3.5-turbo"),
             "anthropic": os.getenv("LLM_MODEL_ANTHROPIC", "claude-3-sonnet-20240229"),
             "mistral": os.getenv("LLM_MODEL_MISTRAL", "mistral-large-latest"),
-            "kilocode": os.getenv("LLM_MODEL_KILOCODE", "gpt-3.5-turbo"),
+            "kilocode": os.getenv("LLM_MODEL_KILOCODE", "gpt-4o"),  # 128K context via Kilocode
         },
         "DEBUG_MODE": _env_to_bool(os.getenv("KALLISTO_DEBUG")),
         "LOG_LEVEL": os.getenv("KALLISTO_LOG_LEVEL"),
