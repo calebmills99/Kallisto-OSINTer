@@ -7,8 +7,9 @@ and finally Mistral if earlier providers fail.
 
 from __future__ import annotations
 
+import threading
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
 
 from src.utils.logger import get_logger
 
@@ -32,8 +33,13 @@ except ImportError:  # pragma: no cover - handled gracefully
 logger = get_logger(__name__)
 
 _DEFAULT_SYSTEM_PROMPT = "You are an OSINT assistant."
-
-_last_llm_call_time = 0.0
+_SUPPORTED_PROVIDERS = ("openai", "anthropic", "mistral")
+_DEFAULT_PROVIDER_ORDER = list(_SUPPORTED_PROVIDERS)
+_DEFAULT_PROVIDER_MODELS = {
+    "openai": "gpt-4",
+    "anthropic": "claude-3-sonnet-20240229",
+    "mistral": "mistral-large-latest",
+}
 
 
 class LLMClient:
@@ -44,29 +50,47 @@ class LLMClient:
         openai_key: Optional[str] = None,
         anthropic_key: Optional[str] = None,
         mistral_key: Optional[str] = None,
+        provider_order: Optional[Sequence[str]] = None,
+        models: Optional[Dict[str, str]] = None,
         rate_limit: float = 2.0,
         system_prompt: str = _DEFAULT_SYSTEM_PROMPT,
     ) -> None:
+        self._rate_limit_lock = threading.Lock()
+        self._last_llm_call_time = 0.0
         self.rate_limit = max(rate_limit, 0.0)
         self.system_prompt = system_prompt
 
         self.openai_key = openai_key or ""
         self.anthropic_key = anthropic_key or ""
         self.mistral_key = mistral_key or ""
+        self._provider_models: Dict[str, str] = dict(_DEFAULT_PROVIDER_MODELS)
+        if models:
+            for name, value in models.items():
+                if not value:
+                    continue
+                normalised = name.lower()
+                if normalised in _SUPPORTED_PROVIDERS:
+                    self._provider_models[normalised] = value
 
-        self.openai_client = self._build_openai_client()
-        self.anthropic_client = self._build_anthropic_client()
-        self.mistral_client = self._build_mistral_client()
+        self.openai_client = self._build_client(self.openai_key, OpenAI, "OpenAI")
+        self.anthropic_client = self._build_client(self.anthropic_key, Anthropic, "Anthropic")
+        self.mistral_client = self._build_client(self.mistral_key, MistralClient, "Mistral")
 
-        self._provider_order: List[str] = []
-        if self.openai_client is not None:
-            self._provider_order.append("openai")
-        if self.anthropic_client is not None:
-            self._provider_order.append("anthropic")
-        if self.mistral_client is not None:
-            self._provider_order.append("mistral")
+        order = self._normalise_provider_order(provider_order)
+        provider_map: Dict[str, tuple[Any, Callable[[str, str, float, int], str]]] = {
+            "openai": (self.openai_client, self._call_openai),
+            "anthropic": (self.anthropic_client, self._call_anthropic),
+            "mistral": (self.mistral_client, self._call_mistral),
+        }
 
-        if not self._provider_order:
+        self._providers: List[tuple[str, Callable[[str, str, float, int], str]]] = []
+        for name in order:
+            client, call_fn = provider_map.get(name, (None, None))
+            if client is None:
+                continue
+            self._providers.append((name, call_fn))
+
+        if not self._providers:
             logger.warning("LLMClient initialized without any available providers.")
 
     @classmethod
@@ -78,83 +102,92 @@ class LLMClient:
             anthropic_key=config.get("ANTHROPIC_API_KEY"),
             mistral_key=config.get("MISTRAL_API_KEY"),
             rate_limit=float(config.get("LLM_RATE_LIMIT", 2.0)),
+            provider_order=config.get("LLM_PROVIDER_ORDER"),
+            models=config.get("LLM_MODEL_OVERRIDES"),
+            system_prompt=config.get("LLM_SYSTEM_PROMPT", _DEFAULT_SYSTEM_PROMPT),
         )
 
-    def _build_openai_client(self) -> Optional[OpenAI]:
-        if not self.openai_key or OpenAI is None:
-            return None
-        try:
-            return OpenAI(api_key=self.openai_key)
-        except Exception as exc:  # pragma: no cover - network failures
-            logger.error("Failed to initialize OpenAI client: %s", exc)
-            return None
-
-    def _build_anthropic_client(self) -> Optional[Anthropic]:
-        if not self.anthropic_key or Anthropic is None:
-            return None
-        try:
-            return Anthropic(api_key=self.anthropic_key)
-        except Exception as exc:  # pragma: no cover - network failures
-            logger.error("Failed to initialize Anthropic client: %s", exc)
-            return None
-
-    def _build_mistral_client(self) -> Optional[MistralClient]:
-        if not self.mistral_key or MistralClient is None:
-            return None
-        try:
-            return MistralClient(api_key=self.mistral_key)
-        except Exception as exc:  # pragma: no cover - network failures
-            logger.error("Failed to initialize Mistral client: %s", exc)
-            return None
-
     def _respect_rate_limit(self) -> None:
-        global _last_llm_call_time
         if self.rate_limit <= 0:
             return
-        current_time = time.time()
-        elapsed = current_time - _last_llm_call_time
-        if elapsed < self.rate_limit:
-            sleep_time = self.rate_limit - elapsed
-            logger.debug("LLM rate limiting: sleeping for %.2f seconds", sleep_time)
-            time.sleep(sleep_time)
+        with self._rate_limit_lock:
+            elapsed = time.time() - self._last_llm_call_time
+            if elapsed < self.rate_limit:
+                sleep_time = self.rate_limit - elapsed
+                logger.debug("LLM rate limiting: sleeping for %.2f seconds", sleep_time)
+                time.sleep(sleep_time)
+            self._last_llm_call_time = time.time()
+
+    def _record_call_time(self) -> None:
+        if self.rate_limit <= 0:
+            return
+        with self._rate_limit_lock:
+            self._last_llm_call_time = time.time()
+
+    @staticmethod
+    def _normalise_provider_order(provider_order: Optional[Sequence[str]] | Optional[str]) -> List[str]:
+        if provider_order is None:
+            candidates: Iterable[str] = _DEFAULT_PROVIDER_ORDER
+        elif isinstance(provider_order, str):
+            candidates = [part.strip() for part in provider_order.split(",")]
+        else:
+            candidates = provider_order
+
+        order: List[str] = []
+        for candidate in candidates:
+            name = candidate.strip().lower()
+            if not name:
+                continue
+            if name not in _SUPPORTED_PROVIDERS:
+                logger.warning("Ignoring unsupported LLM provider '%s' in configuration.", candidate)
+                continue
+            if name not in order:
+                order.append(name)
+        return order or list(_DEFAULT_PROVIDER_ORDER)
+
+    def _build_client(self, key: str, cls: Any, provider_name: str) -> Optional[Any]:
+        if not key or cls is None:
+            return None
+        try:
+            return cls(api_key=key)
+        except Exception as exc:  # pragma: no cover - network failures
+            logger.error("Failed to initialize %s client: %s", provider_name, exc)
+            return None
 
     def call_llm(
         self,
         prompt: str,
-        model: str = "gpt-4",
+        model: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 512,
+        model_overrides: Optional[Dict[str, str]] = None,
     ) -> str:
         """Call the first available provider and return its response text."""
 
-        global _last_llm_call_time
         self._respect_rate_limit()
 
-        for provider in self._provider_order:
-            try:
-                if provider == "openai":
-                    response = self._call_openai(prompt, model, temperature, max_tokens)
-                elif provider == "anthropic":
-                    response = self._call_anthropic(
-                        prompt,
-                        model="claude-3-sonnet-20240229",
-                        temperature=temperature,
-                        max_tokens=max_tokens,
-                    )
-                elif provider == "mistral":
-                    response = self._call_mistral(
-                        prompt,
-                        model="mistral-large-latest",
-                        temperature=temperature,
-                        max_tokens=max_tokens,
-                    )
-                else:  # pragma: no cover - defensive
+        if not self._providers:
+            logger.error("All LLM providers failed to respond.")
+            return "LLM Error: Unable to process the request."
+
+        provider_models = dict(self._provider_models)
+        if model:
+            provider_models["openai"] = model
+        if model_overrides:
+            for name, override in model_overrides.items():
+                if not override:
                     continue
-                _last_llm_call_time = time.time()
-                return response.strip()
+                provider_models[name.lower()] = override
+
+        for provider, call_fn in self._providers:
+            try:
+                provider_model = provider_models.get(provider) or model or ""
+                response = call_fn(prompt, provider_model, temperature, max_tokens)
+                self._record_call_time()
+                return (response or "").strip()
             except Exception as exc:
                 logger.error("LLM provider %s failed: %s", provider, exc)
-                _last_llm_call_time = time.time()
+                self._record_call_time()
 
         logger.error("All LLM providers failed to respond.")
         return "LLM Error: Unable to process the request."
@@ -180,7 +213,10 @@ class LLMClient:
             max_tokens=max_tokens,
             n=1,
         )
-        return response.choices[0].message.content or ""
+        if not getattr(response, "choices", None):
+            return ""
+        message = response.choices[0].message
+        return getattr(message, "content", "") or ""
 
     def _call_anthropic(
         self,
@@ -225,6 +261,4 @@ class LLMClient:
             temperature=temperature,
             max_tokens=max_tokens,
         )
-        if not response.choices:
-            return ""
-        return response.choices[0].message.content or ""
+        return response.choices[0].message.content or "" if response.choices else ""

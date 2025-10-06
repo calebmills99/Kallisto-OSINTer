@@ -6,7 +6,8 @@ threading, proxies, and randomized user agents.
 
 from __future__ import annotations
 
-import threading
+import random
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List
 
 import requests
@@ -21,16 +22,15 @@ logger = get_logger(__name__)
 def search_username(username: str, urls: List[str], config: dict) -> List[Dict[str, str]]:
     """Check each URL for ``username`` and return discovery metadata."""
 
-    results: List[Dict[str, str]] = []
-    threads = []
-    lock = threading.Lock()
-
     proxy_list = config.get("PROXY_LIST", [])
     valid_proxies = validate_proxies(proxy_list) if proxy_list else []
+    max_workers_config = int(config.get("USERNAME_SEARCH_MAX_WORKERS", 10))
+    worker_count = max(1, min(max_workers_config, len(urls) or 1))
 
-    def worker(url: str) -> None:
+    def worker(url: str) -> Dict[str, str]:
         headers = {"User-Agent": get_random_user_agent()}
-        proxy = {"http": valid_proxies[0], "https": valid_proxies[0]} if valid_proxies else None
+        proxy_address = random.choice(valid_proxies) if valid_proxies else None
+        proxy = {"http": proxy_address, "https": proxy_address} if proxy_address else None
         try:
             response = requests.get(url, headers=headers, proxies=proxy, timeout=10)
             content = response.text
@@ -38,15 +38,10 @@ def search_username(username: str, urls: List[str], config: dict) -> List[Dict[s
             status = "found" if found else "not found"
         except Exception as exc:  # pragma: no cover - network/requests failures
             status = f"error: {exc}"
-        with lock:
-            results.append({"url": url, "status": status})
+        return {"url": url, "status": status}
 
-    for url in urls:
-        thread = threading.Thread(target=worker, args=(url,))
-        thread.start()
-        threads.append(thread)
+    if not urls:
+        return []
 
-    for thread in threads:
-        thread.join()
-
-    return results
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        return list(executor.map(worker, urls))

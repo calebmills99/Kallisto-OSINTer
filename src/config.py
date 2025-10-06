@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 
 def _env_to_bool(value: str | None, default: bool = False) -> bool:
@@ -17,6 +17,16 @@ def _env_to_bool(value: str | None, default: bool = False) -> bool:
 
 def load_config() -> Dict[str, Any]:
     """Load configuration from environment variables."""
+
+    provider_order_env = os.getenv("LLM_PROVIDER_ORDER")
+    if provider_order_env:
+        provider_order: List[str] = [
+            item.strip().lower()
+            for item in provider_order_env.split(",")
+            if item.strip()
+        ]
+    else:
+        provider_order = ["openai", "anthropic", "mistral"]
 
     config: Dict[str, Any] = {
         "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", ""),
@@ -33,6 +43,13 @@ def load_config() -> Dict[str, Any]:
         "PROXY_LIST": os.getenv("PROXY_LIST", "[]"),
         "LLM_RATE_LIMIT": float(os.getenv("LLM_RATE_LIMIT", "2.0")),
         "SEARCH_RATE_LIMIT": float(os.getenv("SEARCH_RATE_LIMIT", "1.5")),
+        "USERNAME_SEARCH_MAX_WORKERS": int(os.getenv("USERNAME_SEARCH_MAX_WORKERS", "10")),
+        "LLM_PROVIDER_ORDER": provider_order,
+        "LLM_MODEL_OVERRIDES": {
+            "openai": os.getenv("LLM_MODEL_OPENAI", "gpt-4"),
+            "anthropic": os.getenv("LLM_MODEL_ANTHROPIC", "claude-3-sonnet-20240229"),
+            "mistral": os.getenv("LLM_MODEL_MISTRAL", "mistral-large-latest"),
+        },
         "DEBUG_MODE": _env_to_bool(os.getenv("KALLISTO_DEBUG")),
         "LOG_LEVEL": os.getenv("KALLISTO_LOG_LEVEL"),
     }

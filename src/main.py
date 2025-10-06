@@ -48,10 +48,7 @@ def parse_arguments() -> argparse.Namespace:
 def _resolve_output_format(path: str, explicit_format: str | None) -> str:
     if explicit_format:
         return explicit_format
-    suffix = Path(path).suffix.lstrip(".")
-    if suffix:
-        return suffix
-    return "txt"
+    return suffix if (suffix := Path(path).suffix.lstrip(".")) else "txt"
 
 
 def _maybe_save_results(data: Any, output_path: str | None, output_format: str | None) -> None:
@@ -63,6 +60,7 @@ def _maybe_save_results(data: Any, output_path: str | None, output_format: str |
         print(f"Results saved to {saved_path}")
     except ValueError as exc:
         logger.error("Failed to save results: %s", exc)
+        print(f"Error: Failed to save results to {output_path}: {exc}")
 
 
 def main() -> None:
