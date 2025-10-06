@@ -23,7 +23,7 @@ class KilocodeClient:
     def __init__(
         self,
         api_key: str,
-        base_url: str = "https://api.kilocode.com/v1",
+        base_url: str = "https://api.kilocode.ai/v1",
         timeout: int = 30,
     ) -> None:
         if requests is None:  # pragma: no cover - safety guard
@@ -33,7 +33,7 @@ class KilocodeClient:
         if not self.api_key:
             raise ValueError("Kilocode API key must be provided")
 
-        self.base_url = base_url.rstrip("/") or "https://api.kilocode.com/v1"
+        self.base_url = base_url.rstrip("/") or "https://api.kilocode.ai/v1"
         self.timeout = timeout
 
     def chat_completion(

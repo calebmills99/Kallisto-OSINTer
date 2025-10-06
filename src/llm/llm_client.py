@@ -57,7 +57,7 @@ class LLMClient:
         models: Optional[Dict[str, str]] = None,
         rate_limit: float = 2.0,
         system_prompt: str = _DEFAULT_SYSTEM_PROMPT,
-        kilocode_base_url: str = "https://api.kilocode.com/v1",
+        kilocode_base_url: str = "https://api.kilocode.ai/v1",
     ) -> None:
         self.rate_limit = max(rate_limit, 0.0)
         self._rate_limit_lock = threading.Lock()
@@ -68,7 +68,7 @@ class LLMClient:
         self.anthropic_key = (anthropic_key or "").strip()
         self.mistral_key = (mistral_key or "").strip()
         self.kilocode_key = (kilocode_key or "").strip()
-        self.kilocode_base_url = kilocode_base_url.rstrip("/") or "https://api.kilocode.com/v1"
+        self.kilocode_base_url = kilocode_base_url.rstrip("/") or "https://api.kilocode.ai/v1"
 
         self._provider_models = self._initialise_provider_models(models)
 
@@ -93,7 +93,7 @@ class LLMClient:
             provider_order=config.get("LLM_PROVIDER_ORDER"),
             models=config.get("LLM_MODEL_OVERRIDES"),
             system_prompt=config.get("LLM_SYSTEM_PROMPT", _DEFAULT_SYSTEM_PROMPT),
-            kilocode_base_url=config.get("KILOCODE_API_BASE", "https://api.kilocode.com/v1"),
+            kilocode_base_url=config.get("KILOCODE_API_BASE", "https://api.kilocode.ai/v1"),
         )
 
     def _initialise_provider_models(
