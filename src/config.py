@@ -25,8 +25,8 @@ def load_config() -> Dict[str, Any]:
             if item.strip()
         ]
     else:
-        # Kilocode first - unlimited requests, multiple models
-        provider_order = ["kilocode", "openai", "anthropic", "mistral"]
+        # OpenAI primary for Railway (Kilocode has DNS issues on Railway)
+        provider_order = ["openai", "kilocode", "anthropic", "mistral"]
 
     config: Dict[str, Any] = {
         "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", ""),
