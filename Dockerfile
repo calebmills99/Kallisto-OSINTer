@@ -29,4 +29,5 @@ USER kallisto
 EXPOSE 5000
 
 # Use gunicorn for production
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "guardr_api:app"]
+# Timeout set to 300s (5 minutes) for long-running OSINT operations
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "300", "guardr_api:app"]
