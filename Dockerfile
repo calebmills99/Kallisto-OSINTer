@@ -28,6 +28,6 @@ USER kallisto
 # Expose Flask port
 EXPOSE 5000
 
-# Use gunicorn for production
-# Timeout set to 300s (5 minutes) for long-running OSINT operations
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "300", "guardr_api:app"]
+# Use gunicorn for production with async API
+# Async job processing eliminates timeout issues
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "--threads", "4", "guardr_api_async:app"]
