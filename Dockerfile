@@ -29,5 +29,5 @@ USER kallisto
 EXPOSE 5000
 
 # Use gunicorn for production with async API
-# Async job processing eliminates timeout issues
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "--threads", "4", "guardr_api_async:app"]
+# Single worker to share in-memory job storage (use Redis for multi-worker in production)
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--timeout", "120", "--threads", "4", "guardr_api_async:app"]
